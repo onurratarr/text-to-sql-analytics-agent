@@ -1,0 +1,18 @@
+[project]
+name = "text-to-sql-analytics-agent"
+version = "0.1.0"
+description = "Reference implementation: schema-aware text-to-SQL agent over a synthetic dbt-style DuckDB warehouse, with a SQL safety guard, self-correction, data tests and execution-accuracy eval."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Onur Atar" }]
+dependencies = ["duckdb>=1.1", "sqlglot>=30,<31", "pyyaml>=6"]
+
+[project.optional-dependencies]
+providers = ["httpx>=0.27"]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["tsa"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

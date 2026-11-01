@@ -1,0 +1,141 @@
+# dbt-style model docs and data tests. Column descriptions also feed the text-to-SQL agent's schema context.
+models:
+  - name: stg_customers
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: email
+        tests: [not_null, {expression_is_true: {expression: "email = lower(trim(email))"}}]
+      - name: country
+        tests: [{accepted_values: {values: [US, CA, GB, DE, FR, NL, TR, AU, UNKNOWN]}}]
+  - name: stg_orders
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: status
+        tests: [{accepted_values: {values: [completed, shipped, cancelled, returned, pending]}}]
+      - name: channel
+        tests: [{accepted_values: {values: [web, mobile, marketplace]}}]
+      - name: customer_id
+        tests: [{relationships: {to: stg_customers, field: customer_id}}]
+  - name: stg_order_items
+    columns:
+      - name: order_item_id
+        tests: [unique]
+      - name: quantity
+        tests: [{expression_is_true: {expression: "quantity > 0"}}]
+  - name: stg_payments
+    columns:
+      - name: payment_id
+        tests: [unique, not_null]
+  - name: fct_orders
+    description: One row per order. Revenue only counts completed or shipped orders.
+    columns:
+      - name: order_id
+        description: Order identifier
+        tests: [unique, not_null]
+      - name: customer_id
+        description: Customer who placed the order (join to dim_customers)
+        tests: [not_null, {relationships: {to: dim_customers, field: customer_id}}]
+      - name: order_date
+        description: Date the order was placed
+      - name: order_month
+        description: First day of the order's month
+      - name: status
+        description: "One of: completed, shipped, cancelled, returned, pending"
+      - name: channel
+        description: "Sales channel: web, mobile or marketplace"
+      - name: line_count
+        description: Number of distinct products in the order
+      - name: units
+        description: Total item quantity in the order
+      - name: gross_amount
+        description: List-price value of the order before discounts
+      - name: discount_amount
+        description: Discount given on the order
+      - name: net_revenue
+        description: Revenue after discounts; 0 for cancelled, returned or pending orders
+        tests: [{expression_is_true: {expression: "net_revenue >= 0"}}]
+      - name: amount_paid
+        description: Sum of payments received
+      - name: amount_refunded
+        description: Sum of refunds issued
+  - name: fct_order_lines
+    description: One row per product line in an order.
+    columns:
+      - name: order_item_id
+        tests: [unique, not_null]
+      - name: order_id
+        description: Order identifier (join to fct_orders)
+        tests: [{relationships: {to: fct_orders, field: order_id}}]
+      - name: customer_id
+        description: Customer who placed the order
+      - name: order_date
+        description: Date the order was placed
+      - name: order_month
+        description: First day of the order's month
+      - name: status
+        description: Order status
+      - name: product_id
+        description: Product identifier (join to dim_products)
+      - name: product_name
+        description: Product name
+      - name: category
+        description: "Product category: tents, sleeping, packs, apparel, footwear, cooking"
+      - name: quantity
+        description: Units of the product in this order
+      - name: net_revenue
+        description: Line revenue after discount; 0 unless the order is completed or shipped
+  - name: dim_customers
+    description: One row per customer.
+    columns:
+      - name: customer_id
+        description: Customer identifier
+        tests: [unique, not_null]
+      - name: customer_name
+        description: Customer full name
+      - name: country
+        description: Two-letter country code, or UNKNOWN
+      - name: segment
+        description: "consumer, pro or business"
+      - name: signup_date
+        description: Date the customer signed up
+      - name: first_order_date
+        description: Date of the customer's first order (null if none)
+      - name: last_order_date
+        description: Date of the customer's most recent order
+      - name: lifetime_orders
+        description: Number of orders placed (any status)
+      - name: lifetime_revenue
+        description: Sum of net_revenue over the customer's orders
+        tests: [{expression_is_true: {expression: "lifetime_revenue >= 0"}}]
+  - name: dim_products
+    description: One row per product.
+    columns:
+      - name: product_id
+        description: Product identifier
+        tests: [unique, not_null]
+      - name: product_name
+        description: Product name
+      - name: category
+        description: Product category
+      - name: unit_price
+        description: Current list price
+      - name: is_active
+        description: Whether the product is still sold
+  - name: mart_monthly_revenue
+    description: One row per month.
+    columns:
+      - name: order_month
+        description: First day of the month
+        tests: [unique, not_null]
+      - name: orders
+        description: Orders placed in the month (any status)
+      - name: revenue_orders
+        description: Completed or shipped orders in the month
+      - name: cancelled_orders
+        description: Cancelled orders in the month
+      - name: net_revenue
+        description: Net revenue in the month
+      - name: avg_order_value
+        description: net_revenue / revenue_orders
